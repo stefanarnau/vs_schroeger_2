@@ -65,8 +65,18 @@ agelimits = [floor(min(ages)), floor(max(ages))];
 agebins = agelimits(1) : agelimits(end);
 
 % Loop ages in 1 year bins
-erps_age_diff_tonelength = [];
-erps_age_diff_oddball = [];
+erps_age_diff_tonelength_fz = [];
+erps_age_diff_tonelength_pz = [];
+erps_age_diff_oddball_fz = [];
+erps_age_diff_oddball_pz = [];
+erps_vnorm_age_diff_tonelength_fz = [];
+erps_vnorm_age_diff_tonelength_pz = [];
+erps_vnorm_age_diff_oddball_fz = [];
+erps_vnorm_age_diff_oddball_pz = [];
+erps_maxscal_age_diff_tonelength_fz = [];
+erps_maxscal_age_diff_tonelength_pz = [];
+erps_maxscal_age_diff_oddball_fz = [];
+erps_maxscal_age_diff_oddball_pz = [];
 n_bin = [];
 for a = 1 : length(agebins)
 
@@ -84,27 +94,49 @@ for a = 1 : length(agebins)
     age_erps_pz = squeeze(age_erps(:, 13, :));
     age_erps_fz = squeeze(age_erps(:, 31, :));
 
-    % Tone length difference wave
-    erps_age_diff_tonelength(a, :) = mean(age_erps_pz([2, 4], :), 1) - mean(age_erps_pz([1, 3], :), 1);
+    % Get some ERPs
+    erp_fz_long  = mean(age_erps_fz([2, 4], :), 1);
+    erp_fz_short = mean(age_erps_fz([1, 3], :), 1);
+    erp_pz_long  = mean(age_erps_pz([2, 4], :), 1);
+    erp_pz_short = mean(age_erps_pz([1, 3], :), 1);
+    erp_fz_std   = mean(age_erps_fz([1, 2], :), 1);
+    erp_fz_dev   = mean(age_erps_fz([3, 4], :), 1);
+    erp_pz_std   = mean(age_erps_pz([1, 2], :), 1);
+    erp_pz_dev   = mean(age_erps_pz([3, 4], :), 1);
 
-    % Oddball difference wave
-    erps_age_diff_oddball(a, :) = mean(age_erps_fz([3, 4], :), 1) - mean(age_erps_fz([1, 2], :), 1);
+    % Difference waves
+    erps_age_diff_tonelength_fz(a, :) = erp_fz_long - erp_fz_short;
+    erps_age_diff_tonelength_pz(a, :) = erp_pz_long - erp_pz_short;
+    erps_age_diff_oddball_fz(a, :) = erp_fz_dev - erp_fz_std;
+    erps_age_diff_oddball_pz(a, :) = erp_pz_dev - erp_pz_std;
+
+    % Difference waves of minmax-scaled ERPs
+    erps_maxscal_age_diff_tonelength_fz(a, :) = erp_fz_long / max(abs(erp_fz_long)) - erp_fz_short / max(abs(erp_fz_short));
+    erps_maxscal_age_diff_tonelength_pz(a, :) = erp_pz_long / max(abs(erp_pz_long)) - erp_pz_short / max(abs(erp_pz_short));
+    erps_maxscal_age_diff_oddball_fz(a, :)    = erp_fz_dev  / max(abs(erp_fz_dev))  - erp_fz_std   / max(abs(erp_fz_std));
+    erps_maxscal_age_diff_oddball_pz(a, :)    = erp_pz_dev  / max(abs(erp_pz_dev))  - erp_pz_std   / max(abs(erp_pz_std));
+
+    % Difference waves of vector-normalized ERPs
+    erps_vnorm_age_diff_tonelength_fz(a, :) = erp_fz_long / sqrt(sum(erp_fz_long.^2)) - erp_fz_short / sqrt(sum(erp_fz_short.^2));
+    erps_vnorm_age_diff_tonelength_pz(a, :) = erp_pz_long / sqrt(sum(erp_pz_long.^2)) - erp_pz_short / sqrt(sum(erp_pz_short.^2));
+    erps_vnorm_age_diff_oddball_fz(a, :)    = erp_fz_dev / sqrt(sum(erp_fz_dev.^2)) - erp_fz_std / sqrt(sum(erp_fz_std.^2));
+    erps_vnorm_age_diff_oddball_pz(a, :)    = erp_pz_dev / sqrt(sum(erp_pz_dev.^2)) - erp_pz_std / sqrt(sum(erp_pz_std.^2));
 
 end
 
 figure()
-subplot(1, 2, 1)
-pd = erps_age_diff_tonelength;
+subplot(2, 2, 1)
+pd = erps_age_diff_tonelength_fz;
 contourf(erp_times, agebins, pd, 40, 'linecolor','none')
 colormap('jet')
 set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
 colorbar;
 xlabel('ms')
 ylabel('age')
-title(['long - short at Pz'])
+title(['long - short at Fz'])
 
-subplot(1, 2, 2)
-pd = erps_age_diff_oddball;
+subplot(2, 2, 2)
+pd = erps_age_diff_oddball_fz;
 contourf(erp_times, agebins, pd, 40, 'linecolor','none')
 colormap('jet')
 set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
@@ -113,13 +145,109 @@ xlabel('ms')
 ylabel('age')
 title(['deviant - standard at Fz'])
 
+subplot(2, 2, 3)
+pd = erps_age_diff_tonelength_pz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['long - short at Pz'])
+
+subplot(2, 2, 4)
+pd = erps_age_diff_oddball_pz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['deviant - standard at Pz'])
 
 
 
+figure()
+subplot(2, 2, 1)
+pd = erps_vnorm_age_diff_tonelength_fz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['vnorm - long - short at Fz'])
+
+subplot(2, 2, 2)
+pd = erps_vnorm_age_diff_oddball_fz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['vnorm - deviant - standard at Fz'])
+
+subplot(2, 2, 3)
+pd = erps_vnorm_age_diff_tonelength_pz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['vnorm - long - short at Pz'])
+
+subplot(2, 2, 4)
+pd = erps_vnorm_age_diff_oddball_pz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['vnorm - deviant - standard at Pz'])
 
 
 
+figure()
+subplot(2, 2, 1)
+pd = erps_maxscal_age_diff_tonelength_fz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['maxscal - long - short at Fz'])
 
+subplot(2, 2, 2)
+pd = erps_maxscal_age_diff_oddball_fz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['maxscal - deviant - standard at Fz'])
 
+subplot(2, 2, 3)
+pd = erps_maxscal_age_diff_tonelength_pz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['maxscal - long - short at Pz'])
 
+subplot(2, 2, 4)
+pd = erps_maxscal_age_diff_oddball_pz;
+contourf(erp_times, agebins, pd, 40, 'linecolor','none')
+colormap('jet')
+set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
+colorbar;
+xlabel('ms')
+ylabel('age')
+title(['maxscal - deviant - standard at Pz'])
 
