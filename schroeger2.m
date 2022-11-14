@@ -3,6 +3,7 @@ clear all;
 
 % Path vars
 PATH_PREPROCESSED = '/mnt/data_dump/schroeger2/preprocessed/';
+PATH_OUT = '/mnt/data_dump/schroeger2/results/';
 
 % Get list of files
 fl = dir(fullfile(PATH_PREPROCESSED, '*.mat'));
@@ -13,15 +14,14 @@ load([PATH_PREPROCESSED, fl(1).name]);
 % Get time
 erp_times = VP_Header.erp_time;
 
-% Get chanlocs
-chanlocs = VP_Header.chanlocs;
-
 % Need space!
 ages = zeros(numel(fl), 1);
+ids = [];
 erp_data = zeros(numel(fl), 4, length(VP_Header.chanlocs), length(VP_Header.erp_time));
 
 % Iterate datasets
 idx_nan_data = [];
+ids_nan_data = [];
 sum_nan_data = [];
 for f = 1 : numel(fl)
 
@@ -34,10 +34,12 @@ for f = 1 : numel(fl)
     % Get relevant data
     erp_data(f, :, :, :) = ERP_Dat.data;
     ages(f, 1) = VP_Header.Age;
+    ids(f, 1) = str2num(VP_Header.ID(4 : 6));
 
     % Check for missing data
     if sum(isnan(ERP_Dat.data), [1, 2, 3])
         idx_nan_data(end + 1) = f;
+        ids_nan_data(end + 1) = str2num(VP_Header.ID(4 : 6));
         sum_nan_data(end + 1) = sum(isnan(ERP_Dat.data), [1, 2, 3]);
     end
 
@@ -45,12 +47,44 @@ end
 
 % Delete missing data datasets
 ages(idx_nan_data) = [];
+ids(idx_nan_data) = [];
 erp_data(idx_nan_data, :, :, :) = [];
+
+% Save ids of in-sample datsets
+writematrix(ids, [PATH_OUT, 'ids_of_erp_sample.csv']);
 
 % Prune in time
 idx_time = erp_times >= -200 & erp_times <= 1000;
 erp_times = erp_times(idx_time);
 erp_data = erp_data(:, :, :, idx_time);
+
+% Remove mastoid channels
+erp_data(:, :, [10, 21], :) = [];
+VP_Header.chanlocs([10, 21]) = [];
+
+% New electrode order
+new_order =    [1, 29, 30,...          % FP1 FPz Fp2 
+                3, 4, 31, 27, 28,...   % F7 F3 Fz F4 F8
+                2, 5, 26,...           % FC3 FCz FC4 
+                7, 8, 32, 23, 24,...   % T7 C3 Cz C4 T8
+                6, 9, 25,...           % CP3 CPz CP4
+                11, 12, 13, 19, 20,... % P7 P3 Pz P4 P8
+                14, 22, 18,...         % PO3 POz PO4
+                15, 16, 17];           % O1 Oz O2
+
+% Adjust new order to removed mastoids
+new_order(new_order > 21) = new_order(new_order > 21) - 1;
+new_order(new_order > 10) = new_order(new_order > 10) - 1;
+
+% Re-order channels
+erp_data = erp_data(:, :, new_order, :);
+chanlocs = VP_Header.chanlocs;
+for ch = 1 : numel(VP_Header.chanlocs)
+    chanlocs(ch) = VP_Header.chanlocs(new_order(ch));
+end
+
+% Save erp data [id x condition x channel x time]
+save([PATH_OUT, 'erp_data.mat'], 'erp_data', 'ages', 'erp_times');
 
 % Conditions:
 % 1: std short
@@ -91,8 +125,8 @@ for a = 1 : length(agebins)
     age_erps = squeeze(mean(erp_data(idx_age, :, :, :), 1));
 
     % Get age-bin erps at certain electrodes
-    age_erps_pz = squeeze(age_erps(:, 13, :));
-    age_erps_fz = squeeze(age_erps(:, 31, :));
+    age_erps_pz = squeeze(age_erps(:, find(strcmpi({chanlocs.labels}, 'Pz')), :));
+    age_erps_fz = squeeze(age_erps(:, find(strcmpi({chanlocs.labels}, 'Fz')), :));
 
     % Get some ERPs
     erp_fz_long  = mean(age_erps_fz([2, 4], :), 1);
@@ -110,17 +144,6 @@ for a = 1 : length(agebins)
     erps_age_diff_oddball_fz(a, :) = erp_fz_dev - erp_fz_std;
     erps_age_diff_oddball_pz(a, :) = erp_pz_dev - erp_pz_std;
 
-    % Difference waves of minmax-scaled ERPs
-    erps_maxscal_age_diff_tonelength_fz(a, :) = erp_fz_long / max(abs(erp_fz_long)) - erp_fz_short / max(abs(erp_fz_short));
-    erps_maxscal_age_diff_tonelength_pz(a, :) = erp_pz_long / max(abs(erp_pz_long)) - erp_pz_short / max(abs(erp_pz_short));
-    erps_maxscal_age_diff_oddball_fz(a, :)    = erp_fz_dev  / max(abs(erp_fz_dev))  - erp_fz_std   / max(abs(erp_fz_std));
-    erps_maxscal_age_diff_oddball_pz(a, :)    = erp_pz_dev  / max(abs(erp_pz_dev))  - erp_pz_std   / max(abs(erp_pz_std));
-
-    % Difference waves of vector-normalized ERPs
-    erps_vnorm_age_diff_tonelength_fz(a, :) = erp_fz_long / sqrt(sum(erp_fz_long.^2)) - erp_fz_short / sqrt(sum(erp_fz_short.^2));
-    erps_vnorm_age_diff_tonelength_pz(a, :) = erp_pz_long / sqrt(sum(erp_pz_long.^2)) - erp_pz_short / sqrt(sum(erp_pz_short.^2));
-    erps_vnorm_age_diff_oddball_fz(a, :)    = erp_fz_dev / sqrt(sum(erp_fz_dev.^2)) - erp_fz_std / sqrt(sum(erp_fz_std.^2));
-    erps_vnorm_age_diff_oddball_pz(a, :)    = erp_pz_dev / sqrt(sum(erp_pz_dev.^2)) - erp_pz_std / sqrt(sum(erp_pz_std.^2));
 
 end
 
@@ -167,87 +190,4 @@ title(['deviant - standard at Pz'])
 
 
 
-figure()
-subplot(2, 2, 1)
-pd = erps_vnorm_age_diff_tonelength_fz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['vnorm - long - short at Fz'])
-
-subplot(2, 2, 2)
-pd = erps_vnorm_age_diff_oddball_fz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['vnorm - deviant - standard at Fz'])
-
-subplot(2, 2, 3)
-pd = erps_vnorm_age_diff_tonelength_pz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['vnorm - long - short at Pz'])
-
-subplot(2, 2, 4)
-pd = erps_vnorm_age_diff_oddball_pz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['vnorm - deviant - standard at Pz'])
-
-
-
-figure()
-subplot(2, 2, 1)
-pd = erps_maxscal_age_diff_tonelength_fz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['maxscal - long - short at Fz'])
-
-subplot(2, 2, 2)
-pd = erps_maxscal_age_diff_oddball_fz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['maxscal - deviant - standard at Fz'])
-
-subplot(2, 2, 3)
-pd = erps_maxscal_age_diff_tonelength_pz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['maxscal - long - short at Pz'])
-
-subplot(2, 2, 4)
-pd = erps_maxscal_age_diff_oddball_pz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['maxscal - deviant - standard at Pz'])
 
