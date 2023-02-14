@@ -8,6 +8,38 @@ PATH_OUT = '/mnt/data_dump/schroeger2/results/';
 % Get list of files
 fl = dir(fullfile(PATH_PREPROCESSED, '*.mat'));
 
+% Read list of valid subjects
+valid_subjects = readmatrix('list_valid_vp.csv');
+
+% Compare eeg to valid-list
+eeg_in_valid = [];
+eeg_not_in_valid = [];
+eeg_all = [];
+for f = 1 : numel(fl)
+    id = str2num(fl(f).name(4 : 6));
+    if ismember(id, valid_subjects)
+        eeg_in_valid(end + 1) = id;
+    else
+        eeg_not_in_valid(end + 1) = id;
+    end
+    eeg_all(end + 1) = id;
+end
+
+% Compare valid-list to eeg data
+valid_in_eeg = [];
+valid_not_in_eeg = [];
+for f = 1 : length(valid_subjects)
+    id = valid_subjects(f);
+    if ismember(id, eeg_all)
+        valid_in_eeg(end + 1) = id;
+    else
+        valid_not_in_eeg(end + 1) = id;
+    end
+end
+
+% Save valid in EEG
+writematrix(valid_in_eeg, 'valide_in_eeg_data.csv');
+
 % Dummy load for dimensionality
 load([PATH_PREPROCESSED, fl(1).name]);
 
@@ -15,43 +47,39 @@ load([PATH_PREPROCESSED, fl(1).name]);
 erp_times = VP_Header.erp_time;
 
 % Need space!
-ages = zeros(numel(fl), 1);
+ages = zeros(length(valid_in_eeg), 1);
 ids = [];
-erp_data = zeros(numel(fl), 4, length(VP_Header.chanlocs), length(VP_Header.erp_time));
+erp_data = zeros(length(valid_in_eeg), 4, length(VP_Header.chanlocs), length(VP_Header.erp_time));
 
 % Iterate datasets
 idx_nan_data = [];
 ids_nan_data = [];
 sum_nan_data = [];
+counter = 0;
 for f = 1 : numel(fl)
 
     % Talk
-    fprintf('\nread dataset %i/%i...\n', f, numel(fl));
+    fprintf('\nread dataset %i/%i...\n', f, length(valid_in_eeg));
 
     % Load data
     load([PATH_PREPROCESSED, fl(f).name]);
 
-    % Get relevant data
-    erp_data(f, :, :, :) = ERP_Dat.data;
-    ages(f, 1) = VP_Header.Age;
-    ids(f, 1) = str2num(VP_Header.ID(4 : 6));
+    % Get id
+    id = str2num(fl(f).name(4 : 6));
 
-    % Check for missing data
-    if sum(isnan(ERP_Dat.data), [1, 2, 3])
-        idx_nan_data(end + 1) = f;
-        ids_nan_data(end + 1) = str2num(VP_Header.ID(4 : 6));
-        sum_nan_data(end + 1) = sum(isnan(ERP_Dat.data), [1, 2, 3]);
+    % Check id
+    if ~ismember(id, valid_in_eeg)
+        continue;
     end
 
+    counter = counter + 1;
+
+    % Get relevant data
+    erp_data(counter, :, :, :) = ERP_Dat.data;
+    ages(counter, 1) = VP_Header.Age;
+    ids(counter, 1) = str2num(VP_Header.ID(4 : 6));
+
 end
-
-% Delete missing data datasets
-ages(idx_nan_data) = [];
-ids(idx_nan_data) = [];
-erp_data(idx_nan_data, :, :, :) = [];
-
-% Save ids of in-sample datsets
-writematrix(ids, [PATH_OUT, 'ids_of_erp_sample.csv']);
 
 % Prune in time
 idx_time = erp_times >= -200 & erp_times <= 1000;
@@ -103,14 +131,6 @@ erps_age_diff_tonelength_fz = [];
 erps_age_diff_tonelength_pz = [];
 erps_age_diff_oddball_fz = [];
 erps_age_diff_oddball_pz = [];
-erps_vnorm_age_diff_tonelength_fz = [];
-erps_vnorm_age_diff_tonelength_pz = [];
-erps_vnorm_age_diff_oddball_fz = [];
-erps_vnorm_age_diff_oddball_pz = [];
-erps_maxscal_age_diff_tonelength_fz = [];
-erps_maxscal_age_diff_tonelength_pz = [];
-erps_maxscal_age_diff_oddball_fz = [];
-erps_maxscal_age_diff_oddball_pz = [];
 n_bin = [];
 for a = 1 : length(agebins)
 
@@ -143,7 +163,6 @@ for a = 1 : length(agebins)
     erps_age_diff_tonelength_pz(a, :) = erp_pz_long - erp_pz_short;
     erps_age_diff_oddball_fz(a, :) = erp_fz_dev - erp_fz_std;
     erps_age_diff_oddball_pz(a, :) = erp_pz_dev - erp_pz_std;
-
 
 end
 
@@ -188,6 +207,114 @@ xlabel('ms')
 ylabel('age')
 title(['deviant - standard at Pz'])
 
+% Init ft
+PATH_FIELDTRIP = '/home/plkn/fieldtrip-master/';
+addpath(PATH_FIELDTRIP);
+ft_defaults;
 
+% Read example header for channel labels
+hdr = ft_read_header('/mnt/data_dump/schroeger2/DKA001_Schroeger_ICA.set')
 
+% Init EEGLab
+PATH_EEGLAB = '/home/plkn/eeglab2022.1/';
+addpath(PATH_EEGLAB);
+eeglab;
 
+% Get difference waves (dims: subject x condition x channel x time)
+erp_std = squeeze(mean(erp_data(:, [1, 2], :, :), 2));
+erp_dev = squeeze(mean(erp_data(:, [3, 4], :, :), 2));
+
+% Difference dims: subject x channel x time
+erp_diff = erp_dev - erp_std;
+
+% Bild elec struct
+elec = struct();
+for ch = 1 : length(chanlocs)
+    elec.label{ch} = chanlocs(ch).labels;
+    elec.elecpos(ch, :) = [chanlocs(ch).X, chanlocs(ch).Y, chanlocs(ch).Z];
+    elec.chanpos(ch, :) = [chanlocs(ch).X, chanlocs(ch).Y, chanlocs(ch).Z];
+end
+
+% Build struct for ft
+for s = 1 : length(ages)
+    d = [];
+    d.dimord = 'chan_time';
+    d.label = elec.label;
+    d.time = erp_times;
+    d.avg = squeeze(erp_diff(s, :, :));
+    D{s} = d;
+end
+
+cfg=[];
+cfg.keepindividual = 'yes';
+GA = ft_timelockgrandaverage(cfg, D{1, :});
+
+% Prepare layout
+cfg      = [];
+cfg.elec = elec;
+cfg.rotate = 90;
+layout = ft_prepare_layout(cfg);
+
+% Define neighbours
+cfg                 = [];
+cfg.layout          = layout;
+cfg.feedback        = 'no';
+cfg.method          = 'triangulation'; 
+cfg.neighbours      = ft_prepare_neighbours(cfg, GA);
+neighbours = cfg.neighbours;
+
+% The design
+design = ages;
+
+% Set config
+cfg = [];
+
+% One sided test!
+cfg.tail             = 0; 
+
+% Made changes to ft_statfun_correlationT.m. Line 78 design->design(cfg.ivar,:)
+cfg.statistic        = 'ft_statfun_correlationT'; 
+
+cfg.alpha            = 0.025;
+cfg.neighbours       = neighbours;
+cfg.minnbchan        = 2;
+cfg.method           = 'montecarlo';
+cfg.correctm         = 'cluster';
+cfg.clustertail      = 0;
+cfg.clusteralpha     = 0.05;
+cfg.clusterstatistic = 'maxsum';
+cfg.numrandomization = 1000;
+cfg.computecritval   = 'yes'; 
+cfg.ivar             = 1;
+cfg.design           = design;
+
+% The test
+[stat] = ft_timelockstatistics(cfg, GA);  
+
+% Indices of the significant cluster
+idx = stat.posclusterslabelmat == 1;
+
+% Identify significant channels and time points
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+
+aa = bb;
+
+% Plot a topo for significat time window
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, 'p', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo.png']);
+
+% Save correlation matrix and cluster overlay
+dlmwrite([PATH, 'rho_chan_time.csv'], stat.rho);
+dlmwrite([PATH, 'cluster_contour_chan_time.csv'], idx);
+
+% Save Line plot averaged across significant channels + axis
+dlmwrite([PATH, 'rho_time.csv'], mean(stat.rho(chans_sig, :), 1));
+dlmwrite([PATH, 'timevec.csv'], [1 : 1000]);
