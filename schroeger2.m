@@ -131,6 +131,8 @@ erps_age_diff_tonelength_fz = [];
 erps_age_diff_tonelength_pz = [];
 erps_age_diff_oddball_fz = [];
 erps_age_diff_oddball_pz = [];
+erps_age_diff_interaction_fz = [];
+erps_age_diff_interaction_pz = [];
 n_bin = [];
 for a = 1 : length(agebins)
 
@@ -157,55 +159,26 @@ for a = 1 : length(agebins)
     erp_fz_dev   = mean(age_erps_fz([3, 4], :), 1);
     erp_pz_std   = mean(age_erps_pz([1, 2], :), 1);
     erp_pz_dev   = mean(age_erps_pz([3, 4], :), 1);
+    erp_fz_interaction = ((age_erps_fz(4, :) - age_erps_fz(2, :)) - (age_erps_fz(3, :) - age_erps_fz(1, :)) );
+    erp_pz_interaction = ((age_erps_pz(4, :) - age_erps_pz(2, :)) - (age_erps_pz(3, :) - age_erps_pz(1, :)));
 
     % Difference waves
     erps_age_diff_tonelength_fz(a, :) = erp_fz_long - erp_fz_short;
     erps_age_diff_tonelength_pz(a, :) = erp_pz_long - erp_pz_short;
     erps_age_diff_oddball_fz(a, :) = erp_fz_dev - erp_fz_std;
     erps_age_diff_oddball_pz(a, :) = erp_pz_dev - erp_pz_std;
+    erps_age_diff_interaction_fz(a, :) = erp_fz_interaction;
+    erps_age_diff_interaction_pz(a, :) = erp_pz_interaction;
 
 end
 
-figure()
-subplot(2, 2, 1)
-pd = erps_age_diff_tonelength_fz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['long - short at Fz'])
-
-subplot(2, 2, 2)
-pd = erps_age_diff_oddball_fz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['deviant - standard at Fz'])
-
-subplot(2, 2, 3)
-pd = erps_age_diff_tonelength_pz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['long - short at Pz'])
-
-subplot(2, 2, 4)
-pd = erps_age_diff_oddball_pz;
-contourf(erp_times, agebins, pd, 40, 'linecolor','none')
-colormap('jet')
-set(gca, 'clim', [-max(abs(pd(:))), max(abs(pd(:)))])
-colorbar;
-xlabel('ms')
-ylabel('age')
-title(['deviant - standard at Pz'])
+% Save diff-erps for plotting
+dlmwrite([PATH_OUT, 'erps_age_diff_tonelength_fz.csv'], erps_age_diff_tonelength_fz);
+dlmwrite([PATH_OUT, 'erps_age_diff_tonelength_pz.csv'], erps_age_diff_tonelength_pz);
+dlmwrite([PATH_OUT, 'erps_age_diff_oddball_fz.csv'], erps_age_diff_oddball_fz);
+dlmwrite([PATH_OUT, 'erps_age_diff_oddball_pz.csv'], erps_age_diff_oddball_pz);
+dlmwrite([PATH_OUT, 'erps_age_diff_interaction_fz.csv'], erps_age_diff_interaction_fz);
+dlmwrite([PATH_OUT, 'erps_age_diff_interaction_pz.csv'], erps_age_diff_interaction_pz);
 
 % Init ft
 PATH_FIELDTRIP = '/home/plkn/fieldtrip-master/';
@@ -223,9 +196,16 @@ eeglab;
 % Get difference waves (dims: subject x condition x channel x time)
 erp_std = squeeze(mean(erp_data(:, [1, 2], :, :), 2));
 erp_dev = squeeze(mean(erp_data(:, [3, 4], :, :), 2));
+erp_long = squeeze(mean(erp_data(:, [2, 4], :, :), 2));
+erp_short = squeeze(mean(erp_data(:, [1, 3], :, :), 2));
+
+erp_diff_in_long =  squeeze(erp_data(:, 4, :, :)) - squeeze(erp_data(:, 2, :, :));
+erp_diff_in_short =  squeeze(erp_data(:, 3, :, :)) - squeeze(erp_data(:, 1, :, :));
 
 % Difference dims: subject x channel x time
-erp_diff = erp_dev - erp_std;
+erp_dev_vs_std = erp_dev - erp_std;
+erp_long_vs_short = erp_long - erp_short;
+erp_interaction = erp_diff_in_long - erp_diff_in_short;
 
 % Bild elec struct
 elec = struct();
@@ -235,19 +215,44 @@ for ch = 1 : length(chanlocs)
     elec.chanpos(ch, :) = [chanlocs(ch).X, chanlocs(ch).Y, chanlocs(ch).Z];
 end
 
-% Build struct for ft
+% Build GA dev minus standard
 for s = 1 : length(ages)
     d = [];
     d.dimord = 'chan_time';
     d.label = elec.label;
     d.time = erp_times;
-    d.avg = squeeze(erp_diff(s, :, :));
+    d.avg = squeeze(erp_dev_vs_std(s, :, :));
     D{s} = d;
 end
-
 cfg=[];
 cfg.keepindividual = 'yes';
-GA = ft_timelockgrandaverage(cfg, D{1, :});
+GA_dev_vs_std = ft_timelockgrandaverage(cfg, D{1, :});
+
+% Build GA long minus short
+for s = 1 : length(ages)
+    d = [];
+    d.dimord = 'chan_time';
+    d.label = elec.label;
+    d.time = erp_times;
+    d.avg = squeeze(erp_long_vs_short(s, :, :));
+    D{s} = d;
+end
+cfg=[];
+cfg.keepindividual = 'yes';
+GA_long_vs_short = ft_timelockgrandaverage(cfg, D{1, :});
+
+% Build GA interaction
+for s = 1 : length(ages)
+    d = [];
+    d.dimord = 'chan_time';
+    d.label = elec.label;
+    d.time = erp_times;
+    d.avg = squeeze(erp_interaction(s, :, :));
+    D{s} = d;
+end
+cfg=[];
+cfg.keepindividual = 'yes';
+GA_interaction = ft_timelockgrandaverage(cfg, D{1, :});
 
 % Prepare layout
 cfg      = [];
@@ -260,7 +265,7 @@ cfg                 = [];
 cfg.layout          = layout;
 cfg.feedback        = 'no';
 cfg.method          = 'triangulation'; 
-cfg.neighbours      = ft_prepare_neighbours(cfg, GA);
+cfg.neighbours      = ft_prepare_neighbours(cfg, GA_dev_vs_std);
 neighbours = cfg.neighbours;
 
 % The design
@@ -281,40 +286,155 @@ cfg.minnbchan        = 2;
 cfg.method           = 'montecarlo';
 cfg.correctm         = 'cluster';
 cfg.clustertail      = 0;
-cfg.clusteralpha     = 0.05;
+cfg.clusteralpha     = 0.05; % 0.05 for main effects good!
 cfg.clusterstatistic = 'maxsum';
 cfg.numrandomization = 1000;
 cfg.computecritval   = 'yes'; 
 cfg.ivar             = 1;
 cfg.design           = design;
 
-% The test
-[stat] = ft_timelockstatistics(cfg, GA);  
+% The tests
+[stat_dev_vs_std] = ft_timelockstatistics(cfg, GA_dev_vs_std);  
+[stat_long_vs_short] = ft_timelockstatistics(cfg, GA_long_vs_short); 
+[stat_interaction] = ft_timelockstatistics(cfg, GA_interaction); 
 
-% Indices of the significant cluster
-idx = stat.posclusterslabelmat == 1;
+% Statistics dev minus std =================================================================================
+
+% Save correlation matrix
+dlmwrite([PATH_OUT, 'rho_chan_time_dev_vs_std.csv'], stat_dev_vs_std.rho);
+
+% pos cluster 1
+idx = stat_dev_vs_std.posclusterslabelmat == 1;
 
 % Identify significant channels and time points
 chans_sig = find(sum(idx, 2));
 times_sig = find(sum(idx, 1));
-
-aa = bb;
 
 % Plot a topo for significat time window
 markercolor = 'k';
 cmap = 'jet';
 clim = [-0.5, 0.5];
 figure('Visible', 'off'); clf;
-pd = mean(stat.rho(:, times_sig), 2);
-topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, 'p', markercolor, 14, 1});
+pd = mean(stat_dev_vs_std.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
 colormap(cmap);
 caxis(clim);
-saveas(gcf, [PATH_OUT 'rho_timewin_topo.png']);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo_dev_vs_std_pos_1.png']);
 
-% Save correlation matrix and cluster overlay
-dlmwrite([PATH, 'rho_chan_time.csv'], stat.rho);
-dlmwrite([PATH, 'cluster_contour_chan_time.csv'], idx);
+% Save contour
+dlmwrite([PATH_OUT, 'cluster_contour_dev_vs_std_pos_1.csv'], idx);
 
-% Save Line plot averaged across significant channels + axis
-dlmwrite([PATH, 'rho_time.csv'], mean(stat.rho(chans_sig, :), 1));
-dlmwrite([PATH, 'timevec.csv'], [1 : 1000]);
+% pos cluster 2
+idx = stat_dev_vs_std.posclusterslabelmat == 2;
+
+% Identify significant channels and time points
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+
+% Plot a topo for significat time window
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat_dev_vs_std.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo_dev_vs_std_pos_2.png']);
+
+% Save contour
+dlmwrite([PATH_OUT, 'cluster_contour_dev_vs_std_pos_2.csv'], idx);
+
+% neg cluster 1
+idx = stat_dev_vs_std.negclusterslabelmat == 1;
+
+% Identify significant channels and time points
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+
+% Plot a topo for significat time window
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat_dev_vs_std.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo_dev_vs_std_neg_1.png']);
+
+% Save contour
+dlmwrite([PATH_OUT, 'cluster_contour_dev_vs_std_neg_1.csv'], idx);
+
+% Statistics long minus short =================================================================================
+
+% Save correlation matrix
+dlmwrite([PATH_OUT, 'rho_chan_time_long_vs_short.csv'], stat_long_vs_short.rho);
+
+% pos cluster 1
+idx = stat_long_vs_short.posclusterslabelmat == 1;
+
+% Identify significant channels and time points
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+
+% Plot a topo for significat time window
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat_long_vs_short.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo_long_vs_short_pos_1.png']);
+
+% Save contour
+dlmwrite([PATH_OUT, 'cluster_contour_long_vs_short_pos_1.csv'], idx);
+
+% neg cluster 1
+idx = stat_long_vs_short.negclusterslabelmat == 1;
+
+% Identify significant channels and time points
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+
+% Plot a topo for significat time window
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat_long_vs_short.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo_long_vs_short_neg_1.png']);
+
+% Save contour
+dlmwrite([PATH_OUT, 'cluster_contour_long_vs_short_neg_1.csv'], idx);
+
+% Statistics interaction =================================================================================
+
+% Save correlation matrix
+dlmwrite([PATH_OUT, 'rho_chan_time_interaction.csv'], stat_interaction.rho);
+
+% pos cluster 1
+idx = stat_interaction.posclusterslabelmat == 1;
+
+% Identify significant channels and time points
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+
+% Plot a topo for significat time window
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat_interaction.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'rho_timewin_topo_interaction_pos_1.png']);
+
+% Save contour
+dlmwrite([PATH_OUT, 'cluster_contour_interaction_pos_1.csv'], idx);
