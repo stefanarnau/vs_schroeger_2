@@ -127,12 +127,11 @@ agelimits = [floor(min(ages)), floor(max(ages))];
 agebins = agelimits(1) : agelimits(end);
 
 % Loop ages in 1 year bins
-erps_age_diff_tonelength_fz = [];
-erps_age_diff_tonelength_pz = [];
-erps_age_diff_oddball_fz = [];
-erps_age_diff_oddball_pz = [];
-erps_age_diff_interaction_fz = [];
-erps_age_diff_interaction_pz = [];
+erps_age_diff_frontal_oddball_short = [];
+erps_age_diff_frontal_oddball_long  = [];
+erps_age_diff_parietal_oddball_short = [];
+erps_age_diff_parietal_oddball_long  = [];
+
 n_bin = [];
 for a = 1 : length(agebins)
 
@@ -147,38 +146,25 @@ for a = 1 : length(agebins)
     age_erps = squeeze(mean(erp_data(idx_age, :, :, :), 1));
 
     % Get age-bin erps at certain electrodes
-    age_erps_pz = squeeze(age_erps(:, find(strcmpi({chanlocs.labels}, 'Pz')), :));
-    age_erps_fz = squeeze(age_erps(:, find(strcmpi({chanlocs.labels}, 'Fz')), :));
-
-    % Get some ERPs
-    erp_fz_long  = mean(age_erps_fz([2, 4], :), 1);
-    erp_fz_short = mean(age_erps_fz([1, 3], :), 1);
-    erp_pz_long  = mean(age_erps_pz([2, 4], :), 1);
-    erp_pz_short = mean(age_erps_pz([1, 3], :), 1);
-    erp_fz_std   = mean(age_erps_fz([1, 2], :), 1);
-    erp_fz_dev   = mean(age_erps_fz([3, 4], :), 1);
-    erp_pz_std   = mean(age_erps_pz([1, 2], :), 1);
-    erp_pz_dev   = mean(age_erps_pz([3, 4], :), 1);
-    erp_fz_interaction = ((age_erps_fz(4, :) - age_erps_fz(2, :)) - (age_erps_fz(3, :) - age_erps_fz(1, :)) );
-    erp_pz_interaction = ((age_erps_pz(4, :) - age_erps_pz(2, :)) - (age_erps_pz(3, :) - age_erps_pz(1, :)));
+    channel_idx_frontal  = [1, 2, 3, 5, 6, 7, 9, 10, 11]; 
+    channel_idx_parietal = [21, 22, 23, 25, 26, 27];
+    age_erps_frontal  = squeeze(mean(age_erps(:, channel_idx_frontal,  :), 2));
+    age_erps_parietal = squeeze(mean(age_erps(:, channel_idx_parietal, :), 2));
 
     % Difference waves
-    erps_age_diff_tonelength_fz(a, :) = erp_fz_long - erp_fz_short;
-    erps_age_diff_tonelength_pz(a, :) = erp_pz_long - erp_pz_short;
-    erps_age_diff_oddball_fz(a, :) = erp_fz_dev - erp_fz_std;
-    erps_age_diff_oddball_pz(a, :) = erp_pz_dev - erp_pz_std;
-    erps_age_diff_interaction_fz(a, :) = erp_fz_interaction;
-    erps_age_diff_interaction_pz(a, :) = erp_pz_interaction;
+    erps_age_diff_frontal_oddball_short(a, :) = age_erps_frontal(3, :) - age_erps_frontal(1, :);
+    erps_age_diff_frontal_oddball_long(a, :)  = age_erps_frontal(4, :) - age_erps_frontal(2, :);
 
+    erps_age_diff_parietal_oddball_short(a, :) = age_erps_parietal(3, :) - age_erps_parietal(1, :);
+    erps_age_diff_parietal_oddball_long(a, :)  = age_erps_parietal(4, :) - age_erps_parietal(2, :);
+    
 end
 
 % Save diff-erps for plotting
-dlmwrite([PATH_OUT, 'erps_age_diff_tonelength_fz.csv'], erps_age_diff_tonelength_fz);
-dlmwrite([PATH_OUT, 'erps_age_diff_tonelength_pz.csv'], erps_age_diff_tonelength_pz);
-dlmwrite([PATH_OUT, 'erps_age_diff_oddball_fz.csv'], erps_age_diff_oddball_fz);
-dlmwrite([PATH_OUT, 'erps_age_diff_oddball_pz.csv'], erps_age_diff_oddball_pz);
-dlmwrite([PATH_OUT, 'erps_age_diff_interaction_fz.csv'], erps_age_diff_interaction_fz);
-dlmwrite([PATH_OUT, 'erps_age_diff_interaction_pz.csv'], erps_age_diff_interaction_pz);
+dlmwrite([PATH_OUT, 'erps_age_diff_frontal_oddball_short.csv'], erps_age_diff_frontal_oddball_short);
+dlmwrite([PATH_OUT, 'erps_age_diff_frontal_oddball_long.csv'], erps_age_diff_frontal_oddball_long);
+dlmwrite([PATH_OUT, 'erps_age_diff_parietal_oddball_short.csv'], erps_age_diff_parietal_oddball_short);
+dlmwrite([PATH_OUT, 'erps_age_diff_parietal_oddball_long.csv'], erps_age_diff_parietal_oddball_long);
 
 % Init ft
 PATH_FIELDTRIP = '/home/plkn/fieldtrip-master/';
@@ -196,16 +182,9 @@ eeglab;
 % Get difference waves (dims: subject x condition x channel x time)
 erp_std = squeeze(mean(erp_data(:, [1, 2], :, :), 2));
 erp_dev = squeeze(mean(erp_data(:, [3, 4], :, :), 2));
-erp_long = squeeze(mean(erp_data(:, [2, 4], :, :), 2));
-erp_short = squeeze(mean(erp_data(:, [1, 3], :, :), 2));
-
-erp_diff_in_long =  squeeze(erp_data(:, 4, :, :)) - squeeze(erp_data(:, 2, :, :));
-erp_diff_in_short =  squeeze(erp_data(:, 3, :, :)) - squeeze(erp_data(:, 1, :, :));
 
 % Difference dims: subject x channel x time
 erp_dev_vs_std = erp_dev - erp_std;
-erp_long_vs_short = erp_long - erp_short;
-erp_interaction = erp_diff_in_long - erp_diff_in_short;
 
 % Bild elec struct
 elec = struct();
@@ -227,32 +206,6 @@ end
 cfg=[];
 cfg.keepindividual = 'yes';
 GA_dev_vs_std = ft_timelockgrandaverage(cfg, D{1, :});
-
-% Build GA long minus short
-for s = 1 : length(ages)
-    d = [];
-    d.dimord = 'chan_time';
-    d.label = elec.label;
-    d.time = erp_times;
-    d.avg = squeeze(erp_long_vs_short(s, :, :));
-    D{s} = d;
-end
-cfg=[];
-cfg.keepindividual = 'yes';
-GA_long_vs_short = ft_timelockgrandaverage(cfg, D{1, :});
-
-% Build GA interaction
-for s = 1 : length(ages)
-    d = [];
-    d.dimord = 'chan_time';
-    d.label = elec.label;
-    d.time = erp_times;
-    d.avg = squeeze(erp_interaction(s, :, :));
-    D{s} = d;
-end
-cfg=[];
-cfg.keepindividual = 'yes';
-GA_interaction = ft_timelockgrandaverage(cfg, D{1, :});
 
 % Prepare layout
 cfg      = [];
@@ -295,8 +248,6 @@ cfg.design           = design;
 
 % The tests
 [stat_dev_vs_std] = ft_timelockstatistics(cfg, GA_dev_vs_std);  
-[stat_long_vs_short] = ft_timelockstatistics(cfg, GA_long_vs_short); 
-[stat_interaction] = ft_timelockstatistics(cfg, GA_interaction); 
 
 % Statistics dev minus std =================================================================================
 
@@ -365,80 +316,6 @@ saveas(gcf, [PATH_OUT 'rho_timewin_topo_dev_vs_std_neg_1.png']);
 
 % Save contour
 dlmwrite([PATH_OUT, 'cluster_contour_dev_vs_std_neg_1.csv'], idx);
-
-% Statistics long minus short =================================================================================
-
-% Save correlation matrix
-dlmwrite([PATH_OUT, 'rho_chan_time_long_vs_short.csv'], stat_long_vs_short.rho);
-
-% pos cluster 1
-idx = stat_long_vs_short.posclusterslabelmat == 1;
-
-% Identify significant channels and time points
-chans_sig = find(sum(idx, 2));
-times_sig = find(sum(idx, 1));
-
-% Plot a topo for significat time window
-markercolor = 'k';
-cmap = 'jet';
-clim = [-0.5, 0.5];
-figure('Visible', 'off'); clf;
-pd = mean(stat_long_vs_short.rho(:, times_sig), 2);
-topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
-colormap(cmap);
-caxis(clim);
-saveas(gcf, [PATH_OUT 'rho_timewin_topo_long_vs_short_pos_1.png']);
-
-% Save contour
-dlmwrite([PATH_OUT, 'cluster_contour_long_vs_short_pos_1.csv'], idx);
-
-% neg cluster 1
-idx = stat_long_vs_short.negclusterslabelmat == 1;
-
-% Identify significant channels and time points
-chans_sig = find(sum(idx, 2));
-times_sig = find(sum(idx, 1));
-
-% Plot a topo for significat time window
-markercolor = 'k';
-cmap = 'jet';
-clim = [-0.5, 0.5];
-figure('Visible', 'off'); clf;
-pd = mean(stat_long_vs_short.rho(:, times_sig), 2);
-topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
-colormap(cmap);
-caxis(clim);
-saveas(gcf, [PATH_OUT 'rho_timewin_topo_long_vs_short_neg_1.png']);
-
-% Save contour
-dlmwrite([PATH_OUT, 'cluster_contour_long_vs_short_neg_1.csv'], idx);
-
-% Statistics interaction =================================================================================
-
-% Save correlation matrix
-dlmwrite([PATH_OUT, 'rho_chan_time_interaction.csv'], stat_interaction.rho);
-
-% pos cluster 1
-idx = stat_interaction.posclusterslabelmat == 1;
-
-% Identify significant channels and time points
-chans_sig = find(sum(idx, 2));
-times_sig = find(sum(idx, 1));
-
-% Plot a topo for significat time window
-markercolor = 'k';
-cmap = 'jet';
-clim = [-0.5, 0.5];
-figure('Visible', 'off'); clf;
-pd = mean(stat_interaction.rho(:, times_sig), 2);
-topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
-colormap(cmap);
-caxis(clim);
-saveas(gcf, [PATH_OUT 'rho_timewin_topo_interaction_pos_1.png']);
-
-% Save contour
-dlmwrite([PATH_OUT, 'cluster_contour_interaction_pos_1.csv'], idx);
-
 
 % Correlation lineplots =================================================================================
 
