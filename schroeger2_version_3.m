@@ -9,7 +9,7 @@ PATH_OUT = '/mnt/data_dump/schroeger2/results/';
 fl = dir(fullfile(PATH_PREPROCESSED, '*.mat'));
 
 % Read list of valid subjects
-valid_subjects = readmatrix('list_valid_vp.csv');
+valid_subjects = readmatrix('ids_of_erp_sample_24-04-04.csv');
 
 % Compare eeg to valid-list
 eeg_in_valid = [];
