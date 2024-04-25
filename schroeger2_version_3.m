@@ -276,6 +276,21 @@ caxis(clim);
 saveas(gcf, [PATH_OUT 'topo_cluster_short_pos_1.png']);
 dlmwrite([PATH_OUT, 'contour_cluster_short_pos_1.csv'], idx);
 
+% Short: Cluster pos 2
+idx = stat_srt.posclusterslabelmat == 2;
+chans_sig = find(sum(idx, 2));
+times_sig = find(sum(idx, 1));
+markercolor = 'k';
+cmap = 'jet';
+clim = [-0.5, 0.5];
+figure('Visible', 'off'); clf;
+pd = mean(stat_srt.rho(:, times_sig), 2);
+topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
+colormap(cmap);
+caxis(clim);
+saveas(gcf, [PATH_OUT 'topo_cluster_short_pos_2.png']);
+dlmwrite([PATH_OUT, 'contour_cluster_short_pos_2.csv'], idx);
+
 % Short: Cluster neg 1
 idx = stat_srt.negclusterslabelmat == 1;
 chans_sig = find(sum(idx, 2));
@@ -320,21 +335,6 @@ colormap(cmap);
 caxis(clim);
 saveas(gcf, [PATH_OUT 'topo_cluster_long_pos_1.png']);
 dlmwrite([PATH_OUT, 'contour_cluster_long_pos_1.csv'], idx);
-
-% long: Cluster pos 2
-idx = stat_lng.posclusterslabelmat == 2;
-chans_sig = find(sum(idx, 2));
-times_sig = find(sum(idx, 1));
-markercolor = 'k';
-cmap = 'jet';
-clim = [-0.5, 0.5];
-figure('Visible', 'off'); clf;
-pd = mean(stat_lng.rho(:, times_sig), 2);
-topoplot(pd, chanlocs, 'plotrad', 0.7, 'intrad', 0.7, 'intsquare', 'on', 'conv', 'off', 'electrodes', 'off', 'emarker2', {chans_sig, '.', markercolor, 14, 1});
-colormap(cmap);
-caxis(clim);
-saveas(gcf, [PATH_OUT 'topo_cluster_long_pos_2.png']);
-dlmwrite([PATH_OUT, 'contour_cluster_long_pos_2.csv'], idx);
 
 % Long: Cluster neg 1
 idx = stat_lng.negclusterslabelmat == 1;
